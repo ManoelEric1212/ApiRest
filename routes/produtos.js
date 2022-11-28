@@ -1,6 +1,35 @@
 const express = require('express');
 const router = express.Router();
 const mysql = require('../mysql').pool;
+const multer = require('multer');
+
+
+const storage = multer.diskStorage(
+    {
+        destination: function(req, file, cb){
+            cb(null, '/uploads/');
+        },
+        filename: function(req, file, cb){
+            cb(null, file.originalname);
+            console.log(cb(null, file.originalname));
+        }
+    }
+)
+const fileFilter = (req,file,cb)=>{
+    if(file.mimetype === 'image/jpeg' || file.mimetype === 'image.png'){
+        cb(null,true);
+    } else {
+        cb(num,false);
+    }  
+}
+
+const upload = multer({
+    storage: storage,
+    limits: {
+        fileSize: 1024 * 1024 *5
+    },
+    fileFilter: fileFilter
+});
 
 
 
@@ -40,12 +69,13 @@ router.get('/', (req, res, next) => {
 
 
 // Fazendo o POST para produto
-router.post('/', (req, res, next) => {
+router.post('/', upload.single("produto_imagem"), (req, res, next) => {
+    console.log("sdad",req.file)
     mysql.getConnection((error, conn) => {
         if(error){ return res.status(500).send({error: error})}
         conn.query(
-            'INSERT INTO produtos (nome, preco) VALUES (?,?)',
-            [req.body.nome, req.body.preco],
+            'INSERT INTO produtos (nome, preco, imagem_produto) VALUES (?,?,?)',
+            [req.body.nome, req.body.preco, req.file.path],
             (error, resultado, field) => {
                 conn.release();
                 if(error){ return res.status(500).send({error: error})};
@@ -55,6 +85,7 @@ router.post('/', (req, res, next) => {
                         id_produto: resultado.id_produto,
                         nome: req.body.nome,
                         preco: req.body.preco,
+                        imagem_produto: req.file.path,
                         request:{
                             tipo: 'POST',
                             descricao: '',
